@@ -54,6 +54,11 @@ module MethodSource
     raise SourceNotFoundError, "Could not load source for #{name}: #{e.message}"
   end
 
+  # Clear cache.
+  def self.clear_cache
+    @lines_for_file = {}
+  end
+
   # @deprecated — use MethodSource::CodeHelpers#complete_expression?
   def self.valid_expression?(str)
     complete_expression?(str)
@@ -120,6 +125,37 @@ module MethodSource
     def comment
       MethodSource.comment_helper(source_location, defined?(name) ? name : inspect)
     end
+
+    # Return the comments associated with the method class/module.
+    # @return [String] The method's comments as a string
+    # @raise SourceNotFoundException
+    #
+    # @example
+    #  MethodSource::MethodExtensions.method(:included).module_comment
+    #  =>
+    #     # This module is to be included by `Method` and `UnboundMethod` and
+    #     # provides the `#source` functionality
+    def class_comment
+      if self.respond_to?(:receiver)
+        class_inst_or_module =  self.receiver
+      elsif self.respond_to?(:owner)
+        class_inst_or_module = self.owner
+      else
+        return comment
+      end
+
+      if class_inst_or_module.respond_to?(:name)
+        const_name = class_inst_or_module.name
+      else
+        const_name = class_inst_or_module.class.name
+        class_inst_or_module = class_inst_or_module.class
+      end
+
+      location = class_inst_or_module.const_source_location(const_name)
+
+      MethodSource.comment_helper(location, defined?(name) ? name : inspect)
+    end
+    alias module_comment class_comment
   end
 end
 
